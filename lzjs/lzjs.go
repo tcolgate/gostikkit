@@ -1,9 +1,6 @@
 package lzjs
 
-import (
-	"math"
-	"strings"
-)
+import "math"
 
 type lzData struct {
 	str      []uint16
@@ -23,6 +20,13 @@ type lzCtx struct {
 	numBits            int
 	result             []uint16
 	data               *lzData
+}
+
+func firstRune(str string) rune {
+	for _, c := range str {
+		return c
+	}
+	return rune(0)
 }
 
 func (data *lzData) writeBit(value int) {
@@ -53,7 +57,7 @@ func (ctx *lzCtx) decrementEnlargeIn() {
 
 func (ctx *lzCtx) produceW() {
 	if _, ok := ctx.dictionaryToCreate[ctx.w]; ok {
-		iw := strings.IndexRune(ctx.w, 0)
+		iw := int(firstRune(ctx.w))
 		if iw < 256 {
 			ctx.data.writeBits(ctx.numBits, 0)
 			ctx.data.writeBits(8, iw)
@@ -70,7 +74,7 @@ func (ctx *lzCtx) produceW() {
 }
 
 func compress(uncompressed string) []uint16 {
-	ctx := lzCtx{
+	ctx := &lzCtx{
 		dictionary:         map[string]int{},
 		dictionaryToCreate: map[string]bool{},
 		c:                  rune(0),
@@ -217,7 +221,7 @@ func decompress(compressed []uint16) string {
 			entry = dictionary[int(c)]
 		} else {
 			if c == uint16(dictSize) {
-				entry = w + string(strings.IndexRune(w, 0))
+				entry = w + string(firstRune(w))
 			} else {
 				return "" // This should probably be an error
 			}
@@ -225,7 +229,7 @@ func decompress(compressed []uint16) string {
 		result += entry
 
 		// Add w+entry[0] to the dictionary.
-		dictionary[dictSize] = w + string(strings.IndexRune(entry, 0))
+		dictionary[dictSize] = w + string(firstRune(entry))
 		dictSize++
 		enlargeIn--
 
