@@ -1,6 +1,10 @@
 package lzjs
 
-import "math"
+import (
+	"errors"
+	"log"
+	"math"
+)
 
 type lzData struct {
 	str      []uint16
@@ -20,6 +24,10 @@ type lzCtx struct {
 	numBits            int
 	result             []uint16
 	data               *lzData
+}
+
+func pow2(n int) int {
+	return 1 << uint(n)
 }
 
 func firstRune(str string) rune {
@@ -50,7 +58,7 @@ func (data *lzData) writeBits(numBits int, value int) {
 func (ctx *lzCtx) decrementEnlargeIn() {
 	ctx.enlargeIn--
 	if ctx.enlargeIn == 0 {
-		ctx.enlargeIn = int(math.Pow(2, float64(ctx.numBits)))
+		ctx.enlargeIn = pow2(ctx.numBits)
 		ctx.numBits++
 	}
 }
@@ -124,6 +132,12 @@ func compress(uncompressed string) []uint16 {
 }
 
 func (data *lzData) readBit() int {
+	defer func() {
+		if r := recover(); r != nil {
+			log.Printf("%#v", r)
+			log.Fatal("failed")
+		}
+	}()
 	res := data.val & uint16(data.position)
 	data.position >>= 1
 	if data.position == 0 {
@@ -140,8 +154,8 @@ func (data *lzData) readBit() int {
 }
 
 func (data *lzData) readBits(numBits int) uint16 {
-	var res = uint16(0)
-	var maxpower = int(math.Pow(2, float64(numBits)))
+	res := uint16(0)
+	maxpower := int(math.Pow(2, float64(numBits)))
 	var power = 1
 	for power != maxpower {
 		res |= uint16(data.readBit() * power)
@@ -150,7 +164,7 @@ func (data *lzData) readBits(numBits int) uint16 {
 	return res
 }
 
-func decompress(compressed []uint16) string {
+func decompress(compressed []uint16) (string, error) {
 	dictionary := map[int]string{}
 	enlargeIn := 4
 	dictSize := 4
@@ -180,7 +194,7 @@ func decompress(compressed []uint16) string {
 		c = data.readBits(16)
 		break
 	case 2:
-		return ""
+		return "", nil
 	}
 	dictionary[3] = string(rune(c))
 	w = string(rune(c))
@@ -191,10 +205,10 @@ func decompress(compressed []uint16) string {
 
 		switch c {
 		case 0:
-			errorCount++
 			if errorCount > 10000 {
-				return "Error"
+				return "", errors.New("too many errors")
 			}
+			errorCount++
 			c = data.readBits(8)
 			dictionary[dictSize] = string(rune(c))
 			dictSize++
@@ -209,11 +223,11 @@ func decompress(compressed []uint16) string {
 			enlargeIn--
 			break
 		case 2:
-			return result
+			return result, nil
 		}
 
 		if enlargeIn == 0 {
-			enlargeIn = int(math.Pow(2, float64(numBits)))
+			enlargeIn = pow2(numBits)
 			numBits++
 		}
 
@@ -223,7 +237,7 @@ func decompress(compressed []uint16) string {
 			if c == uint16(dictSize) {
 				entry = w + string(firstRune(w))
 			} else {
-				return "" // This should probably be an error
+				return "", errors.New("ran out of dictionary")
 			}
 		}
 		result += entry
@@ -236,10 +250,10 @@ func decompress(compressed []uint16) string {
 		w = entry
 
 		if enlargeIn == 0 {
-			enlargeIn = int(math.Pow(2, float64(numBits)))
+			enlargeIn = pow2(numBits)
 			numBits++
 		}
 
 	}
-	return result
+	return result, nil
 }
