@@ -3,7 +3,7 @@ package lzjs
 import (
 	"errors"
 	"log"
-	"math"
+	"unicode/utf16"
 )
 
 type lzData struct {
@@ -11,14 +11,15 @@ type lzData struct {
 	val      uint16
 	position int
 	index    int
+	empty    bool
 }
 
 type lzCtx struct {
 	dictionary         map[string]int
 	dictionaryToCreate map[string]bool
-	c                  rune
-	wc                 string
-	w                  string
+	c                  uint16
+	wc                 []uint16
+	w                  []uint16
 	enlargeIn          int
 	dictSize           int
 	numBits            int
@@ -30,14 +31,7 @@ func pow2(n int) int {
 	return 1 << uint(n)
 }
 
-func firstRune(str string) rune {
-	for _, c := range str {
-		return c
-	}
-	return rune(0)
-}
-
-func (data *lzData) writeBit(value int) {
+func (data *lzData) writeBit(value uint16) {
 	data.val = (data.val << 1) | uint16(value)
 	if data.position == 15 {
 		data.position = 0
@@ -48,7 +42,7 @@ func (data *lzData) writeBit(value int) {
 	}
 }
 
-func (data *lzData) writeBits(numBits int, value int) {
+func (data *lzData) writeBits(numBits int, value uint16) {
 	for i := 0; i < numBits; i++ {
 		data.writeBit(value & 1)
 		value = value >> 1
@@ -63,9 +57,13 @@ func (ctx *lzCtx) decrementEnlargeIn() {
 	}
 }
 
+func hashUtf16(i []uint16) string {
+	return string(utf16.Decode(i))
+}
+
 func (ctx *lzCtx) produceW() {
-	if _, ok := ctx.dictionaryToCreate[ctx.w]; ok {
-		iw := int(firstRune(ctx.w))
+	if _, ok := ctx.dictionaryToCreate[hashUtf16(ctx.w)]; ok {
+		iw := ctx.w[0]
 		if iw < 256 {
 			ctx.data.writeBits(ctx.numBits, 0)
 			ctx.data.writeBits(8, iw)
@@ -74,9 +72,9 @@ func (ctx *lzCtx) produceW() {
 			ctx.data.writeBits(16, iw)
 		}
 		ctx.decrementEnlargeIn()
-		delete(ctx.dictionaryToCreate, ctx.w)
+		delete(ctx.dictionaryToCreate, hashUtf16(ctx.w))
 	} else {
-		ctx.data.writeBits(ctx.numBits, ctx.dictionary[ctx.w])
+		ctx.data.writeBits(ctx.numBits, uint16(ctx.dictionary[hashUtf16(ctx.w)]))
 	}
 	ctx.decrementEnlargeIn()
 }
@@ -85,9 +83,9 @@ func compress(uncompressed string) []uint16 {
 	ctx := &lzCtx{
 		dictionary:         map[string]int{},
 		dictionaryToCreate: map[string]bool{},
-		c:                  rune(0),
-		wc:                 "",
-		w:                  "",
+		c:                  uint16(0),
+		wc:                 []uint16{},
+		w:                  []uint16{},
 		enlargeIn:          2, // Compensate for the first entry which should not count
 		dictSize:           3,
 		numBits:            2,
@@ -95,28 +93,33 @@ func compress(uncompressed string) []uint16 {
 		data:               &lzData{},
 	}
 
-	for _, c := range uncompressed {
+	chars := utf16.Encode([]rune(uncompressed))
+
+	for _, c := range chars {
 		ctx.c = c
-		if _, ok := ctx.dictionary[string(ctx.c)]; !ok {
-			ctx.dictionary[string(ctx.c)] = ctx.dictSize
+		hc := hashUtf16([]uint16{ctx.c})
+		if _, ok := ctx.dictionary[hc]; !ok {
+			ctx.dictionary[hc] = ctx.dictSize
 			ctx.dictSize++
-			ctx.dictionaryToCreate[string(ctx.c)] = true
+			ctx.dictionaryToCreate[hc] = true
 		}
 
-		ctx.wc = ctx.w + string(ctx.c)
-		if _, ok := ctx.dictionary[ctx.wc]; ok {
-			ctx.w = ctx.wc
+		ctx.wc = append(ctx.w, ctx.c)
+		hwc := hashUtf16(ctx.wc)
+		if _, ok := ctx.dictionary[hwc]; ok {
+			ctx.w = make([]uint16, len(ctx.wc))
+			copy(ctx.w, ctx.wc)
 		} else {
 			ctx.produceW()
 			// Add wc to the dictionary.
-			ctx.dictionary[ctx.wc] = ctx.dictSize
+			ctx.dictionary[hwc] = ctx.dictSize
 			ctx.dictSize++
-			ctx.w = string(ctx.c)
+			ctx.w = []uint16{ctx.c}
 		}
 	}
 
 	// Output the code for w.
-	if ctx.w != "" {
+	if len(ctx.w) != 0 {
 		ctx.produceW()
 	}
 
@@ -134,16 +137,23 @@ func compress(uncompressed string) []uint16 {
 func (data *lzData) readBit() int {
 	defer func() {
 		if r := recover(); r != nil {
-			log.Printf("%#v", r)
-			log.Fatal("failed")
+			log.Fatal("failed ", r)
 		}
 	}()
+	if data.empty {
+		return 0
+	}
+
 	res := data.val & uint16(data.position)
 	data.position >>= 1
 	if data.position == 0 {
-		data.position = 32768
-		data.val = data.str[data.index]
-		data.index++
+		if data.index < len(data.str) {
+			data.position = 32768
+			data.val = data.str[data.index]
+			data.index++
+		} else {
+			data.empty = true
+		}
 	}
 	//data.val = (data.val << 1);
 	if res > 0 {
@@ -155,7 +165,7 @@ func (data *lzData) readBit() int {
 
 func (data *lzData) readBits(numBits int) uint16 {
 	res := uint16(0)
-	maxpower := int(math.Pow(2, float64(numBits)))
+	maxpower := pow2(numBits)
 	var power = 1
 	for power != maxpower {
 		res |= uint16(data.readBit() * power)
@@ -165,13 +175,13 @@ func (data *lzData) readBits(numBits int) uint16 {
 }
 
 func decompress(compressed []uint16) (string, error) {
-	dictionary := map[int]string{}
+	dictionary := map[int][]uint16{}
 	enlargeIn := 4
 	dictSize := 4
 	numBits := 3
-	entry := ""
-	result := ""
-	var w string
+	entry := []uint16{}
+	result := []uint16{}
+	w := []uint16{}
 	var c uint16
 	errorCount := 0
 	data := &lzData{
@@ -182,7 +192,7 @@ func decompress(compressed []uint16) (string, error) {
 	}
 
 	for i := 0; i < 3; i += 1 {
-		dictionary[i] = string(rune(i))
+		dictionary[i] = []uint16{uint16(i)}
 	}
 
 	next := data.readBits(2)
@@ -196,9 +206,9 @@ func decompress(compressed []uint16) (string, error) {
 	case 2:
 		return "", nil
 	}
-	dictionary[3] = string(rune(c))
-	w = string(rune(c))
-	result = string(rune(c))
+	dictionary[3] = []uint16{c}
+	w = []uint16{c}
+	result = []uint16{c}
 
 	for {
 		c = data.readBits(numBits)
@@ -210,20 +220,20 @@ func decompress(compressed []uint16) (string, error) {
 			}
 			errorCount++
 			c = data.readBits(8)
-			dictionary[dictSize] = string(rune(c))
+			dictionary[dictSize] = []uint16{c}
 			dictSize++
 			c = uint16(dictSize - 1)
 			enlargeIn--
 			break
 		case 1:
 			c = data.readBits(16)
-			dictionary[dictSize] = string(rune(c))
+			dictionary[dictSize] = []uint16{c}
 			dictSize++
 			c = uint16(dictSize - 1)
 			enlargeIn--
 			break
 		case 2:
-			return result, nil
+			return string(utf16.Decode(result)), nil
 		}
 
 		if enlargeIn == 0 {
@@ -234,16 +244,20 @@ func decompress(compressed []uint16) (string, error) {
 		if _, ok := dictionary[int(c)]; ok {
 			entry = dictionary[int(c)]
 		} else {
+			log.Println("New token")
 			if c == uint16(dictSize) {
-				entry = w + string(firstRune(w))
+				entry = append(w, w[0])
 			} else {
+				//return string(utf16.Decode(result)), nil
 				return "", errors.New("ran out of dictionary")
 			}
 		}
-		result += entry
+		result = append(result, entry...)
 
 		// Add w+entry[0] to the dictionary.
-		dictionary[dictSize] = w + string(firstRune(entry))
+		newdr := make([]uint16, len(w)+1)
+		copy(newdr, append(w, entry[0]))
+		dictionary[dictSize] = newdr
 		dictSize++
 		enlargeIn--
 
@@ -253,7 +267,6 @@ func decompress(compressed []uint16) (string, error) {
 			enlargeIn = pow2(numBits)
 			numBits++
 		}
-
 	}
-	return result, nil
+	return string(utf16.Decode(result)), nil
 }

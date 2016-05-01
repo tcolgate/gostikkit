@@ -1,18 +1,23 @@
 package lzjs
 
 import (
+	"log"
 	"reflect"
 	"testing"
+	"testing/quick"
+	"unicode/utf16"
 )
 
 var testingValues map[string][]uint16 = map[string][]uint16{
-	"A":             {8336},
-	"AB":            {8322, 4608},
-	"ABC":           {8322, 4290, 16384},
-	"ABCABC":        {8322, 4290, 42560},
-	"ABCACABCACABC": {8322, 4290, 49641, 42560},
-	"A☺A☺":          {8354, 58149, 16384},
-	"ABCλλBCλAC":    {8322, 4290, 36316, 481, 50752},
+	"A":                          {8336},
+	"AA":                         {8370},
+	"AB":                         {8322, 4608},
+	"ABC":                        {8322, 4290, 16384},
+	"ABCABC":                     {8322, 4290, 42560},
+	"ABCACABCACABC":              {8322, 4290, 49641, 42560},
+	"A☺A☺":                       {8354, 58149, 16384},
+	"ABCλλBCλAC":                 {8322, 4290, 36316, 481, 50752},
+	"ABCDEFGHIJKLMNOPQRSTUVWXYZ": {8322, 4290, 544, 41478, 8418, 144, 9344, 41997, 8217, 712, 3648, 61952, 10248, 40978, 32970, 168, 2720, 6784, 59904, 26633, 40982, 36864},
 }
 
 var gatsby = `In my younger and more vulnerable years my father gave me some advice that I’ve been turning over in my mind ever since.
@@ -58,24 +63,26 @@ func TestCompDecompGatsby(t *testing.T) {
 	}
 }
 
-/*
 func TestQuickCompDecomp(t *testing.T) {
-	f := func(x []uint16) bool {
-		s := string(utf16.Decode(x))
-		y, err := decompress(compress(string(s)))
-		return err == nil && s == y
+	f := func(cs []uint16) bool {
+		x := utf16.Decode(cs)
+		y, err := decompress(compress(string(x)))
+		if err != nil {
+			log.Println("err ", err)
+		}
+
+		return err == nil && string(x) == y
 	}
 	if err := quick.Check(f, nil); err != nil {
 		t.Error(err)
 	}
 }
-*/
 
 func TestCompress(t *testing.T) {
 	for k, v := range testingValues {
 		result := compress(k)
 		if !reflect.DeepEqual(result, v) {
-			t.Errorf("Result should be :\n  %v\n instead of :\n  %v", result, v)
+			t.Errorf("Result should be :\n  %v\n instead of :\n  %v", v, result)
 		}
 	}
 }
@@ -87,7 +94,7 @@ func TestDecompress(t *testing.T) {
 			t.Errorf("decompress threw error, %v", err)
 		}
 		if !reflect.DeepEqual(result, k) {
-			t.Errorf("Result should be :\n  %v\n instead of :\n  %v", result, k)
+			t.Errorf("Result should be :\n  %v\n instead of :\n  %v", k, result)
 		}
 	}
 }
