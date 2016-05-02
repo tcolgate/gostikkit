@@ -1,3 +1,5 @@
+// Package evpkdf implements OpenSSL EVP Key derivation function, aiming to
+// be compatible with crypto-js default behaviour.
 package evpkdf
 
 import (
