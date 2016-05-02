@@ -1,14 +1,17 @@
+// Package lzjs implements the lz-string data compress / decompression
+// routines. It aims for full binary compatibility with lz-string
 package lzjs
 
 import (
+	"encoding/base64"
 	"errors"
 	"log"
 	"unicode/utf16"
 )
 
 type lzData struct {
-	str      []uint16
 	val      uint16
+	str      []uint16
 	position int
 	index    int
 	empty    bool
@@ -79,6 +82,8 @@ func (ctx *lzCtx) produceW() {
 	ctx.decrementEnlargeIn()
 }
 
+// Compress is the basic routine to compress data to uint16, to
+// match the utf16 data produced in lz-string
 func Compress(uncompressed string) []uint16 {
 	ctx := &lzCtx{
 		dictionary:         map[string]int{},
@@ -158,9 +163,8 @@ func (data *lzData) readBit() int {
 	//data.val = (data.val << 1);
 	if res > 0 {
 		return 1
-	} else {
-		return 0
 	}
+	return 0
 }
 
 func (data *lzData) readBits(numBits int) uint16 {
@@ -174,6 +178,8 @@ func (data *lzData) readBits(numBits int) uint16 {
 	return res
 }
 
+// Decompress is the basic routine to decompress the utf16 data produced in lz-string
+// into the origin string
 func Decompress(compressed []uint16) (string, error) {
 	dictionary := [][]uint16{}
 	enlargeIn := 4
@@ -190,7 +196,7 @@ func Decompress(compressed []uint16) (string, error) {
 		index:    1,
 	}
 
-	for i := 0; i < 3; i += 1 {
+	for i := 0; i < 3; i++ {
 		dictionary = append(dictionary, []uint16{uint16(i)})
 	}
 
@@ -263,5 +269,36 @@ func Decompress(compressed []uint16) (string, error) {
 			numBits++
 		}
 	}
-	return string(utf16.Decode(result)), nil
+	//return string(utf16.Decode(result)), nil
+}
+
+// CompressToBase64 takes a string and returns the
+// base64 encoded, compressed data
+func CompressToBase64(in string) string {
+	comps := Compress(in)
+
+	bs := []byte{}
+	for i := 0; i < len(comps); i++ {
+		bs = append(bs, byte(comps[i]>>8))
+		bs = append(bs, byte(comps[i]&(uint16(255))))
+	}
+	return base64.StdEncoding.EncodeToString(bs)
+}
+
+// DecompressFromBase64 takes a base64 encoded compressed
+// blob and returns the origin, uncompressed data
+func DecompressFromBase64(in string) (string, error) {
+	lzplain, err := base64.StdEncoding.DecodeString(in)
+	if err != nil {
+		return "", err
+	}
+
+	lzus := []uint16{}
+	for i := 0; i < len(lzplain); i += 2 {
+		v := uint16(lzplain[i])
+		v <<= 8
+		v |= uint16(lzplain[i+1])
+		lzus = append(lzus, v)
+	}
+	return Decompress(lzus)
 }
