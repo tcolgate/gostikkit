@@ -175,9 +175,8 @@ func (data *lzData) readBits(numBits int) uint16 {
 }
 
 func decompress(compressed []uint16) (string, error) {
-	dictionary := map[int][]uint16{}
+	dictionary := [][]uint16{}
 	enlargeIn := 4
-	dictSize := 4
 	numBits := 3
 	entry := []uint16{}
 	result := []uint16{}
@@ -192,7 +191,7 @@ func decompress(compressed []uint16) (string, error) {
 	}
 
 	for i := 0; i < 3; i += 1 {
-		dictionary[i] = []uint16{uint16(i)}
+		dictionary = append(dictionary, []uint16{uint16(i)})
 	}
 
 	next := data.readBits(2)
@@ -206,7 +205,7 @@ func decompress(compressed []uint16) (string, error) {
 	case 2:
 		return "", nil
 	}
-	dictionary[3] = []uint16{c}
+	dictionary = append(dictionary, []uint16{uint16(c)})
 	w = []uint16{c}
 	result = []uint16{c}
 
@@ -220,16 +219,14 @@ func decompress(compressed []uint16) (string, error) {
 			}
 			errorCount++
 			c = data.readBits(8)
-			dictionary[dictSize] = []uint16{c}
-			dictSize++
-			c = uint16(dictSize - 1)
+			dictionary = append(dictionary, []uint16{uint16(c)})
+			c = uint16(len(dictionary)) - 1
 			enlargeIn--
 			break
 		case 1:
 			c = data.readBits(16)
-			dictionary[dictSize] = []uint16{c}
-			dictSize++
-			c = uint16(dictSize - 1)
+			dictionary = append(dictionary, []uint16{uint16(c)})
+			c = uint16(len(dictionary)) - 1
 			enlargeIn--
 			break
 		case 2:
@@ -241,11 +238,10 @@ func decompress(compressed []uint16) (string, error) {
 			numBits++
 		}
 
-		if _, ok := dictionary[int(c)]; ok {
+		if int(c) < len(dictionary) {
 			entry = dictionary[int(c)]
 		} else {
-			log.Println("New token")
-			if c == uint16(dictSize) {
+			if c == uint16(len(dictionary)) {
 				entry = append(w, w[0])
 			} else {
 				//return string(utf16.Decode(result)), nil
@@ -257,8 +253,7 @@ func decompress(compressed []uint16) (string, error) {
 		// Add w+entry[0] to the dictionary.
 		newdr := make([]uint16, len(w)+1)
 		copy(newdr, append(w, entry[0]))
-		dictionary[dictSize] = newdr
-		dictSize++
+		dictionary = append(dictionary, newdr)
 		enlargeIn--
 
 		w = entry
