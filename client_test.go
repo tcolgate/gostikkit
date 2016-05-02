@@ -23,16 +23,7 @@ func TestPostDecrypt(t *testing.T) {
 	}
 
 	b64lzplain := decrypt(decoded, key)
-	lzplain, err := base64.StdEncoding.DecodeString(string(b64lzplain))
-
-	lzus := []uint16{}
-	for i := 0; i < len(lzplain); i += 2 {
-		v := uint16(lzplain[i])
-		v <<= 8
-		v |= uint16(lzplain[i+1])
-		lzus = append(lzus, v)
-	}
-	plain, err := lzjs.Decompress(lzus)
+	plain, err := lzjs.DecompressFromBase64(string(b64lzplain))
 	if err != nil {
 		t.Fatal(err)
 	}
