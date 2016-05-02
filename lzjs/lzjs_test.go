@@ -1,7 +1,6 @@
 package lzjs
 
 import (
-	"log"
 	"reflect"
 	"testing"
 	"testing/quick"
@@ -68,7 +67,7 @@ func TestQuickCompDecomp(t *testing.T) {
 		x := utf16.Decode(cs)
 		y, err := Decompress(Compress(string(x)))
 		if err != nil {
-			log.Println("err ", err)
+			t.Fatal("err ", err)
 		}
 
 		return err == nil && string(x) == y
@@ -117,5 +116,19 @@ func BenchmarkDecompress(b *testing.B) {
 	b.ResetTimer()
 	for n := 0; n < b.N; n++ {
 		Decompress(d)
+	}
+}
+
+func TestCompressToBase64(t *testing.T) {
+	in := "hello"
+	res := CompressToBase64(in)
+
+	res2, err := DecompressFromBase64(res)
+	if err != nil {
+		t.Fatal("error ", err)
+	}
+
+	if res2 != in {
+		t.Fatal("input and output did not match")
 	}
 }

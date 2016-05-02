@@ -269,7 +269,6 @@ func Decompress(compressed []uint16) (string, error) {
 			numBits++
 		}
 	}
-	//return string(utf16.Decode(result)), nil
 }
 
 // CompressToBase64 takes a string and returns the
