@@ -27,8 +27,8 @@ And, after boasting this way of my tolerance, I come to the admission that it ha
 
 func TestCompDecomp(t *testing.T) {
 	for k := range testingValues {
-		compd := compress(k)
-		result, err := decompress(compd)
+		compd := Compress(k)
+		result, err := Decompress(compd)
 		if err != nil {
 			t.Errorf("decompress threw error, %v", err)
 		}
@@ -40,11 +40,11 @@ func TestCompDecomp(t *testing.T) {
 
 func TestDecompComp(t *testing.T) {
 	for _, v := range testingValues {
-		decom, err := decompress(v)
+		decom, err := Decompress(v)
 		if err != nil {
 			t.Errorf("decompress threw error, %v", err)
 		}
-		result := compress(decom)
+		result := Compress(decom)
 		if !reflect.DeepEqual(result, v) {
 			t.Errorf("Result should be :\n  %v\n instead of :\n  %v", result, v)
 		}
@@ -53,8 +53,8 @@ func TestDecompComp(t *testing.T) {
 
 func TestCompDecompGatsby(t *testing.T) {
 	s := gatsby
-	compd := compress(s)
-	result, err := decompress(compd)
+	compd := Compress(s)
+	result, err := Decompress(compd)
 	if err != nil {
 		t.Errorf("decompress threw error, %v", err)
 	}
@@ -66,7 +66,7 @@ func TestCompDecompGatsby(t *testing.T) {
 func TestQuickCompDecomp(t *testing.T) {
 	f := func(cs []uint16) bool {
 		x := utf16.Decode(cs)
-		y, err := decompress(compress(string(x)))
+		y, err := Decompress(Compress(string(x)))
 		if err != nil {
 			log.Println("err ", err)
 		}
@@ -80,7 +80,7 @@ func TestQuickCompDecomp(t *testing.T) {
 
 func TestCompress(t *testing.T) {
 	for k, v := range testingValues {
-		result := compress(k)
+		result := Compress(k)
 		if !reflect.DeepEqual(result, v) {
 			t.Errorf("Result should be :\n  %v\n instead of :\n  %v", v, result)
 		}
@@ -89,7 +89,7 @@ func TestCompress(t *testing.T) {
 
 func TestDecompress(t *testing.T) {
 	for k, v := range testingValues {
-		result, err := decompress(v)
+		result, err := Decompress(v)
 		if err != nil {
 			t.Errorf("decompress threw error, %v", err)
 		}
@@ -105,17 +105,17 @@ func BenchmarkCompress(b *testing.B) {
 	b.SetBytes(int64(bs))
 	b.ResetTimer()
 	for n := 0; n < b.N; n++ {
-		compress(s)
+		Compress(s)
 	}
 }
 
 func BenchmarkDecompress(b *testing.B) {
 	s := gatsby
-	d := compress(s)
+	d := Compress(s)
 	bs := len(d) * 2
 	b.SetBytes(int64(bs))
 	b.ResetTimer()
 	for n := 0; n < b.N; n++ {
-		decompress(d)
+		Decompress(d)
 	}
 }

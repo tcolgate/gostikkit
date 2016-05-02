@@ -79,7 +79,7 @@ func (ctx *lzCtx) produceW() {
 	ctx.decrementEnlargeIn()
 }
 
-func compress(uncompressed string) []uint16 {
+func Compress(uncompressed string) []uint16 {
 	ctx := &lzCtx{
 		dictionary:         map[string]int{},
 		dictionaryToCreate: map[string]bool{},
@@ -174,7 +174,7 @@ func (data *lzData) readBits(numBits int) uint16 {
 	return res
 }
 
-func decompress(compressed []uint16) (string, error) {
+func Decompress(compressed []uint16) (string, error) {
 	dictionary := [][]uint16{}
 	enlargeIn := 4
 	numBits := 3
