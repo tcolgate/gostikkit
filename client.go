@@ -16,3 +16,114 @@
 // along with radia.  If not, see <http://www.gnu.org/licenses/>.
 
 package gostikkit
+
+import (
+	"net/url"
+	"time"
+)
+
+type Client struct {
+	Base     url.URL
+	Key      string
+	defaults Paste
+}
+
+type Paste struct {
+	title   *string
+	name    *string
+	private *bool
+	lang    *string
+	expire  *time.Duration
+	replyTo *string
+}
+
+func (c Client) Get(id string) (Paste, error) {
+	return Paste{}, nil
+}
+
+func (c Client) Put(p Paste, encrypt bool) (string, error) {
+	//	form := url.Values{}
+	// form.Add("title", p.Title)
+	// form.Add("name", p.Name)
+	// //form.Add("private", p.Private)
+	// form.Add("lang", p.Lang)
+	// form.Add("expire", p.Expire.String())
+	// form.Add("reply", p.ReplyTo)
+	return "", nil
+}
+
+var DefaultClient = &Client{}
+
+func NewClient() *Client {
+	c := *DefaultClient
+	return &c
+}
+
+type option func(c *Client) option
+type pasteoption func(c *Paste) pasteoption
+
+func Option(opts ...option) (previous option) {
+	return DefaultClient.Option(opts...)
+}
+
+func (c *Client) Option(opts ...option) (previous option) {
+	for _, opt := range opts {
+		previous = opt(c)
+	}
+	return previous
+}
+
+func DefaultExpire(t time.Duration) option {
+	return func(c *Client) option {
+		previous := c.defaults.expire
+		c.defaults.expire = &t
+		return DefaultExpire(*previous)
+	}
+}
+
+func DefaultName(n string) option {
+	return func(c *Client) option {
+		previous := c.defaults.name
+		c.defaults.name = &n
+		return DefaultName(*previous)
+	}
+}
+
+func DefaultPrivate(p bool) option {
+	return func(c *Client) option {
+		previous := c.defaults.private
+		c.defaults.private = &p
+		return DefaultPrivate(*previous)
+	}
+}
+
+func (c *Paste) Option(opts ...pasteoption) (previous pasteoption) {
+	for _, opt := range opts {
+		previous = opt(c)
+	}
+	return previous
+}
+
+func Expire(t time.Duration) pasteoption {
+	return func(p *Paste) pasteoption {
+		previous := p.expire
+		p.expire = &t
+		return Expire(*previous)
+	}
+}
+
+func Name(n string) pasteoption {
+	return func(p *Paste) pasteoption {
+		previous := p.name
+		p.name = &n
+		return Name(*previous)
+	}
+}
+
+func Private(b bool) pasteoption {
+	return func(p *Paste) pasteoption {
+		previous := p.private
+		p.private = &b
+		return Private(*previous)
+	}
+}
