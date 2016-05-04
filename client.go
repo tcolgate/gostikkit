@@ -18,14 +18,21 @@
 package gostikkit
 
 import (
+	"io"
+	"net/http"
 	"net/url"
 	"time"
 )
+
+func init() {
+	DefaultClient.hc = http.DefaultClient
+}
 
 type Client struct {
 	Base     url.URL
 	Key      string
 	defaults Paste
+	hc       *http.Client
 }
 
 type Paste struct {
@@ -35,10 +42,20 @@ type Paste struct {
 	lang    *string
 	expire  *time.Duration
 	replyTo *string
+	io.ReadCloser
+}
+
+func Get(id string) (Paste, error) {
+	return DefaultClient.Get(id)
 }
 
 func (c Client) Get(id string) (Paste, error) {
-	return Paste{}, nil
+	r, err := c.hc.Get(id)
+	return Paste{ReadCloser: r.Body}, err
+}
+
+func Put(p Paste, encrypt bool) (string, error) {
+	return DefaultClient.Put(p, encrypt)
 }
 
 func (c Client) Put(p Paste, encrypt bool) (string, error) {
