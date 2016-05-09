@@ -64,7 +64,7 @@ func Get(id string) (*Paste, error) {
 
 func (c Client) Get(id string) (*Paste, error) {
 	u, err := url.Parse(id)
-	if err != nil {
+	if err != nil || u.Host == "" {
 		ustr := fmt.Sprintf("%v/%v/%v", c.Base, rawCall, id)
 		u, err = url.Parse(ustr)
 		if err != nil {
