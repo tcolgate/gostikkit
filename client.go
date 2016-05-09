@@ -35,6 +35,8 @@ func init() {
 	DefaultClient.hc = http.DefaultClient
 }
 
+var rawCall = "/view/raw"
+
 type Client struct {
 	Base     url.URL
 	Key      string
@@ -61,11 +63,24 @@ func Get(id string) (*Paste, error) {
 func (c Client) Get(id string) (*Paste, error) {
 	u, err := url.Parse(id)
 	if err != nil {
-		ustr := fmt.Sprintf("%v/view/raw/%v", c.Base, id)
+		ustr := fmt.Sprintf("%v/%v/%v", c.Base, rawCall, id)
 		u, err = url.Parse(ustr)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "")
 			os.Exit(1)
+		}
+	}
+
+	ups := strings.Split(u.Path, "/")
+	if len(ups) >= 2 {
+		call := ups[len(ups)-2 : len(ups)-1][0]
+		if call != "raw" {
+			if call == "view" {
+				prefix := ups[:len(ups)-1]
+				id := ups[len(ups)-1]
+				newparts := append(prefix, "raw", id)
+				u.Path = strings.Join(newparts, "/")
+			}
 		}
 	}
 
@@ -74,7 +89,7 @@ func (c Client) Get(id string) (*Paste, error) {
 		key = u.Fragment
 	}
 
-	r, err := c.hc.Get(id)
+	r, err := c.hc.Get(u.String())
 	return &Paste{
 		raw: r.Body,
 		key: key,
