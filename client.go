@@ -20,6 +20,7 @@ package gostikkit
 import (
 	"bytes"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -32,13 +33,14 @@ import (
 )
 
 func init() {
+	DefaultClient.Base, _ = url.Parse("http://paste.scratchbook.ch")
 	DefaultClient.hc = http.DefaultClient
 }
 
 var rawCall = "/view/raw"
 
 type Client struct {
-	Base     url.URL
+	Base     *url.URL
 	Key      string
 	defaults Paste
 	hc       *http.Client
@@ -90,6 +92,13 @@ func (c Client) Get(id string) (*Paste, error) {
 	}
 
 	r, err := c.hc.Get(u.String())
+	if err != nil {
+		return nil, err
+	}
+	if r.StatusCode != http.StatusOK {
+		return nil, errors.New(r.Status)
+	}
+
 	return &Paste{
 		raw: r.Body,
 		key: key,

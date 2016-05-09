@@ -19,8 +19,13 @@ func main() {
 	for _, a := range os.Args[1:] {
 		p, err := gostikkit.Get(a)
 		if err != nil {
+			log.Println(err)
 			continue
 		}
-		io.Copy(os.Stdout, p)
+		_, err = io.Copy(os.Stdout, p)
+		if err != nil {
+			log.Println(err)
+			continue
+		}
 	}
 }
