@@ -18,10 +18,17 @@
 package gostikkit
 
 import (
+	"bytes"
+	"encoding/base64"
+	"fmt"
 	"io"
 	"net/http"
 	"net/url"
+	"os"
+	"strings"
 	"time"
+
+	"github.com/tcolgate/gostikkit/lzjs"
 )
 
 func init() {
@@ -36,22 +43,42 @@ type Client struct {
 }
 
 type Paste struct {
-	title   *string
-	name    *string
-	private *bool
-	lang    *string
-	expire  *time.Duration
-	replyTo *string
-	io.ReadCloser
+	title     *string
+	name      *string
+	private   *bool
+	lang      *string
+	expire    *time.Duration
+	replyTo   *string
+	decrypted *bytes.Buffer
+	key       string
+	raw       io.ReadCloser
 }
 
-func Get(id string) (Paste, error) {
+func Get(id string) (*Paste, error) {
 	return DefaultClient.Get(id)
 }
 
-func (c Client) Get(id string) (Paste, error) {
+func (c Client) Get(id string) (*Paste, error) {
+	u, err := url.Parse(id)
+	if err != nil {
+		ustr := fmt.Sprintf("%v/view/raw/%v", c.Base, id)
+		u, err = url.Parse(ustr)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "")
+			os.Exit(1)
+		}
+	}
+
+	key := ""
+	if u.Fragment != "" {
+		key = u.Fragment
+	}
+
 	r, err := c.hc.Get(id)
-	return Paste{ReadCloser: r.Body}, err
+	return &Paste{
+		raw: r.Body,
+		key: key,
+	}, err
 }
 
 func Put(p Paste, encrypt bool) (string, error) {
@@ -143,4 +170,33 @@ func Private(b bool) pasteoption {
 		p.private = &b
 		return Private(*previous)
 	}
+}
+
+func (p *Paste) Read(bs []byte) (int, error) {
+	if p.key != "" {
+		if p.decrypted == nil {
+			//Don't currently support lzjs using a reader
+			buf := &bytes.Buffer{}
+			io.Copy(buf, p.raw)
+			clean := strings.Replace(string(buf.Bytes()), "\n", "", -1)
+
+			ciphertext, err := base64.StdEncoding.DecodeString(clean)
+			if err != nil {
+				return 0, err
+			}
+			lztext := decrypt(ciphertext, p.key)
+			plain, err := lzjs.DecompressFromBase64(string(lztext))
+			if err != nil {
+				return 0, err
+			}
+
+			p.decrypted = bytes.NewBuffer([]byte(plain))
+		}
+		return p.decrypted.Read(bs)
+	}
+	return p.raw.Read(bs)
+}
+
+func (p *Paste) Close() error {
+	return p.raw.Close()
 }
