@@ -121,7 +121,7 @@ func (c Client) Put(p Paste, r io.Reader, encrypt bool) (string, error) {
 		form.Add("name", *p.name)
 	}
 
-	if *p.private {
+	if p.private != nil && *p.private {
 		form.Add("private", "1")
 	}
 
