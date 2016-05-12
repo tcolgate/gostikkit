@@ -23,6 +23,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"net/url"
 	"os"
@@ -105,18 +106,38 @@ func (c Client) Get(id string) (*Paste, error) {
 	}, err
 }
 
-func Put(p Paste, encrypt bool) (string, error) {
-	return DefaultClient.Put(p, encrypt)
+func Put(p Paste, r io.Reader, encrypt bool) (string, error) {
+	return DefaultClient.Put(p, r, encrypt)
 }
 
-func (c Client) Put(p Paste, encrypt bool) (string, error) {
-	//	form := url.Values{}
-	// form.Add("title", p.Title)
-	// form.Add("name", p.Name)
-	// //form.Add("private", p.Private)
-	// form.Add("lang", p.Lang)
-	// form.Add("expire", p.Expire.String())
-	// form.Add("reply", p.ReplyTo)
+func (c Client) Put(p Paste, r io.Reader, encrypt bool) (string, error) {
+	form := url.Values{}
+
+	if p.title != nil {
+		form.Add("title", *p.title)
+	}
+
+	if p.name != nil {
+		form.Add("name", *p.name)
+	}
+
+	if *p.private {
+		form.Add("private", "1")
+	}
+
+	if p.lang != nil {
+		form.Add("lang", *p.lang)
+	}
+
+	if p.replyTo != nil {
+		form.Add("reply", *p.replyTo)
+	}
+
+	if p.expire != nil && (*p.expire).String() != "" {
+		form.Add("expire", (*p.expire).String())
+	}
+
+	log.Printf("BLAH 5v\n", form)
 	return "", nil
 }
 
