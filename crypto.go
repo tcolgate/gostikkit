@@ -22,6 +22,7 @@ import (
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/md5"
+	"crypto/rand"
 	"fmt"
 
 	"github.com/tcolgate/gostikkit/evpkdf"
@@ -88,7 +89,7 @@ func stripSalt(ciphertext []byte) ([]byte, []byte) {
 }
 
 func encrypt(plaintext, password string) []byte {
-	salt := []byte("saltsalt")
+	salt := genChars(8)
 
 	keylen := 32
 	key := make([]byte, keylen)
@@ -167,4 +168,16 @@ func decrypt(ciphertext []byte, password string) []byte {
 	}
 
 	return plain
+}
+
+var chars = []byte("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789")
+
+func genChars(n int) []byte {
+	out := make([]byte, n)
+	rs := make([]byte, n)
+	rand.Read(rs)
+	for i := 0; i < n; i++ {
+		out[i] = chars[uint(rs[i])%uint(len(chars))]
+	}
+	return out
 }

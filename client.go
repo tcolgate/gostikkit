@@ -139,10 +139,10 @@ func (c Client) Put(p Paste, r io.Reader, crypt bool) (string, error) {
 	buf := &bytes.Buffer{}
 	io.Copy(buf, r)
 
-	key := "sZJf8robYvrQjy5fV3CbDqw7UF5KjVqh"
+	key := genChars(32)
 	if crypt {
 		lztext := lzjs.CompressToBase64(buf.String())
-		ciphertext := encrypt(lztext, key)
+		ciphertext := encrypt(lztext, string(key))
 		cipherb64 := base64.StdEncoding.EncodeToString(ciphertext)
 		buf.Reset()
 		buf.Write([]byte(cipherb64))
@@ -161,6 +161,7 @@ func (c Client) Put(p Paste, r io.Reader, crypt bool) (string, error) {
 	if crypt {
 		url := buf.String()
 		url = fmt.Sprintf("%s#%s", strings.Replace(url, "\n", "", -1), key)
+		buf.Reset()
 		buf.Write([]byte(url))
 	}
 	return buf.String(), nil
