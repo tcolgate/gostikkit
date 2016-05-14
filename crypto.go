@@ -32,12 +32,15 @@ func pkcs7Pad(data []byte, blocklen int) ([]byte, error) {
 	if blocklen <= 0 {
 		return nil, fmt.Errorf("invalid blocklen %d", blocklen)
 	}
-	padlen := 1
-	for ((len(data) + padlen) % blocklen) != 0 {
-		padlen = padlen + 1
+	padlen := uint8(1)
+	for ((len(data) + int(padlen)) % blocklen) != 0 {
+		padlen++
 	}
 
-	pad := bytes.Repeat([]byte{byte(padlen)}, padlen)
+	if int(padlen) > blocklen {
+		panic(fmt.Sprintf("generated invalid padding length %v for block length %v", padlen, blocklen))
+	}
+	pad := bytes.Repeat([]byte{byte(padlen)}, int(padlen))
 	return append(data, pad...), nil
 }
 
@@ -49,15 +52,17 @@ func pkcs7Unpad(data []byte, blocklen int) ([]byte, error) {
 	if len(data)%blocklen != 0 || len(data) == 0 {
 		return nil, fmt.Errorf("invalid data len %d", len(data))
 	}
+
 	padlen := int(data[len(data)-1])
 	if padlen > blocklen || padlen == 0 {
-		return nil, fmt.Errorf("invalid padding")
+		// Not padded
+		return data, nil
 	}
 	// check padding
 	pad := data[len(data)-padlen:]
 	for i := 0; i < padlen; i++ {
 		if pad[i] != byte(padlen) {
-			return nil, fmt.Errorf("invalid padding")
+			return data, nil
 		}
 	}
 
@@ -67,6 +72,9 @@ func pkcs7Unpad(data []byte, blocklen int) ([]byte, error) {
 var opensslmagic = []byte{0x53, 0x61, 0x6c, 0x74, 0x65, 0x64, 0x5f, 0x5f}
 
 func addSalt(ciphertext, salt []byte) []byte {
+	if len(salt) == 0 {
+		return ciphertext
+	}
 	return append(append(opensslmagic, salt...), ciphertext...)
 }
 
@@ -79,10 +87,26 @@ func stripSalt(ciphertext []byte) ([]byte, []byte) {
 	}
 }
 
-func encrypt(plaintext, password string, salt []byte) []byte {
-	keyiv := evpkdf.New(md5.New, []byte(password), salt, len(password)+aes.BlockSize, 1)
-	key := keyiv[0:(len(keyiv) - aes.BlockSize)]
-	iv := keyiv[(len(keyiv) - aes.BlockSize):len(keyiv)]
+func encrypt(plaintext, password string) []byte {
+	salt := []byte("saltsalt")
+
+	keylen := 32
+	key := make([]byte, keylen)
+	ivlen := aes.BlockSize
+	iv := make([]byte, ivlen)
+
+	keymat := evpkdf.New(md5.New, []byte(password), salt, keylen+ivlen, 1)
+	keymatbuf := bytes.NewReader(keymat)
+
+	n, err := keymatbuf.Read(key)
+	if n != keylen || err != nil {
+		panic("keymaterial was short reading key")
+	}
+
+	n, err = keymatbuf.Read(iv)
+	if n != ivlen || err != nil {
+		panic("keymaterial was short reading iv")
+	}
 
 	block, err := aes.NewCipher(key)
 	if err != nil {
@@ -90,6 +114,9 @@ func encrypt(plaintext, password string, salt []byte) []byte {
 	}
 
 	padded, err := pkcs7Pad([]byte(plaintext), block.BlockSize())
+	if err != nil {
+		panic("padding blew up, " + err.Error())
+	}
 
 	ciphertext := make([]byte, len(padded))
 	mode := cipher.NewCBCEncrypter(block, iv)
@@ -101,9 +128,23 @@ func encrypt(plaintext, password string, salt []byte) []byte {
 func decrypt(ciphertext []byte, password string) []byte {
 	ciphertext, salt := stripSalt(ciphertext)
 
-	keyiv := evpkdf.New(md5.New, []byte(password), salt, len(password)+aes.BlockSize, 1)
-	key := keyiv[0:(len(keyiv) - aes.BlockSize)]
-	iv := keyiv[(len(keyiv) - aes.BlockSize):len(keyiv)]
+	keylen := 32
+	key := make([]byte, keylen)
+	ivlen := aes.BlockSize
+	iv := make([]byte, ivlen)
+
+	keymat := evpkdf.New(md5.New, []byte(password), salt, keylen+ivlen, 1)
+	keymatbuf := bytes.NewReader(keymat)
+
+	n, err := keymatbuf.Read(key)
+	if n != keylen || err != nil {
+		panic("keymaterial was short reading key")
+	}
+
+	n, err = keymatbuf.Read(iv)
+	if n != ivlen || err != nil {
+		panic("keymaterial was short reading iv")
+	}
 
 	block, err := aes.NewCipher(key)
 	if err != nil {
@@ -121,6 +162,9 @@ func decrypt(ciphertext []byte, password string) []byte {
 	mode.CryptBlocks(ciphertext, ciphertext)
 
 	plain, err := pkcs7Unpad(ciphertext, block.BlockSize())
+	if err != nil {
+		panic("padding blew up, " + err.Error())
+	}
 
 	return plain
 }

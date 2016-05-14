@@ -140,10 +140,9 @@ func (c Client) Put(p Paste, r io.Reader, crypt bool) (string, error) {
 	io.Copy(buf, r)
 
 	key := "sZJf8robYvrQjy5fV3CbDqw7UF5KjVqh"
-	salt := []byte(key)
 	if crypt {
 		lztext := lzjs.CompressToBase64(buf.String())
-		ciphertext := encrypt(lztext, key, salt)
+		ciphertext := encrypt(lztext, key)
 		cipherb64 := base64.StdEncoding.EncodeToString(ciphertext)
 		buf.Reset()
 		buf.Write([]byte(cipherb64))

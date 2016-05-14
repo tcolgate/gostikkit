@@ -19,7 +19,6 @@ package gostikkit
 
 import (
 	"encoding/base64"
-	"log"
 	"testing"
 )
 
@@ -33,7 +32,10 @@ func TestCrypt1(t *testing.T) {
 	password := key
 	plaintext := "exampleplaintext"
 
-	log.Println(string(decrypt(encrypt(plaintext, password, []byte("saltsalt")), password)))
+	dec := string(decrypt(encrypt(plaintext, password), password))
+	if plaintext != dec {
+		t.Fatalf("failed:\nwanted: %v\n got: %v\n", plaintext, dec)
+	}
 }
 
 func TestDecrypt1(t *testing.T) {
@@ -50,5 +52,15 @@ func TestDecrypt1(t *testing.T) {
 
 	if string(plaintext) != expected {
 		t.Fatalf("Wrong decryption result:\n got %v\n expected %v\n", string(plaintext), expected)
+	}
+}
+
+func TestCryptNoSalt(t *testing.T) {
+	password := key
+	plaintext := "exampleplaintext"
+
+	dec := string(decrypt(encrypt(plaintext, password), password))
+	if plaintext != dec {
+		t.Fatalf("failed:\nwanted: %v\n got: %v\n", plaintext, dec)
 	}
 }
