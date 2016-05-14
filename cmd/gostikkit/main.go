@@ -12,7 +12,7 @@ import (
 )
 
 var (
-	urlStr = flag.String("url", "http://paste.scratchbook.ch", "Post contents of this file")
+	urlStr = flag.String("url", "http://localhost:80", "Post contents of this file")
 
 	author  = flag.String("author", "", "Author of the post")
 	name    = flag.String("name", "", "Default name  of the post")
@@ -24,7 +24,7 @@ var (
 func main() {
 	flag.Parse()
 
-	if *urlStr == "" {
+	if *urlStr != "" {
 		var err error
 		gostikkit.DefaultClient.Base, err = url.Parse(*urlStr)
 		if err != nil {
@@ -42,7 +42,7 @@ func main() {
 		if *file != "-" && *file != "" {
 			r, err = os.Open(*file)
 			if err != nil {
-				fmt.Println("could not open %v, %v", *file, err.Error())
+				fmt.Printf("could not open %v, %v", *file, err.Error())
 			}
 			os.Exit(1)
 		}
@@ -50,7 +50,7 @@ func main() {
 		p := gostikkit.Paste{}
 		purl, err := gostikkit.Put(p, r, *encrypt)
 		if err != nil {
-			log.Println(err)
+			fmt.Printf(err.Error())
 			os.Exit(1)
 		}
 		fmt.Println(purl)

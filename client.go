@@ -23,7 +23,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"net/url"
 	"os"
@@ -110,7 +109,7 @@ func Put(p Paste, r io.Reader, encrypt bool) (string, error) {
 	return DefaultClient.Put(p, r, encrypt)
 }
 
-func (c Client) Put(p Paste, r io.Reader, encrypt bool) (string, error) {
+func (c Client) Put(p Paste, r io.Reader, crypt bool) (string, error) {
 	form := url.Values{}
 
 	if p.title != nil {
@@ -137,8 +136,35 @@ func (c Client) Put(p Paste, r io.Reader, encrypt bool) (string, error) {
 		form.Add("expire", (*p.expire).String())
 	}
 
-	log.Printf("BLAH 5v\n", form)
-	return "", nil
+	buf := &bytes.Buffer{}
+	io.Copy(buf, r)
+
+	key := "sZJf8robYvrQjy5fV3CbDqw7UF5KjVqh"
+	salt := []byte(key)
+	if crypt {
+		lztext := lzjs.CompressToBase64(buf.String())
+		ciphertext := encrypt(lztext, key, salt)
+		cipherb64 := base64.StdEncoding.EncodeToString(ciphertext)
+		buf.Reset()
+		buf.Write([]byte(cipherb64))
+	}
+
+	form.Add("text", buf.String())
+
+	resp, err := c.hc.PostForm(c.Base.String()+"/api/create", form)
+	if err != nil || resp.StatusCode != http.StatusOK {
+		return "", errors.New("failed to create paste, " + err.Error())
+	}
+
+	buf.Reset()
+	io.Copy(buf, resp.Body)
+
+	if crypt {
+		url := buf.String()
+		url = fmt.Sprintf("%s#%s", strings.Replace(url, "\n", "", -1), key)
+		buf.Write([]byte(url))
+	}
+	return buf.String(), nil
 }
 
 var DefaultClient = &Client{}
