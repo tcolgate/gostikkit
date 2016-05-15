@@ -40,7 +40,9 @@ var rawCall = "/view/raw"
 
 type Client struct {
 	Base *url.URL
-	Paste
+	Key  string
+
+	Paste //The default post to use
 
 	hc *http.Client
 }
@@ -59,7 +61,7 @@ type Paste struct {
 	ReplyTo string
 
 	decrypted *bytes.Buffer
-	key       string
+	ckey      string
 	raw       io.ReadCloser
 }
 
@@ -95,11 +97,16 @@ func (c Client) Get(id string) (*Paste, error) {
 		}
 	}
 
-	key := ""
+	ckey := ""
 	if u.Fragment != "" {
-		key = u.Fragment
+		ckey = u.Fragment
 	}
 
+	if u.Query().Get("apikey") == "" && c.Key != "" {
+		vs := u.Query()
+		vs.Add("apikey", c.Key)
+		u.RawQuery = vs.Encode()
+	}
 	r, err := c.hc.Get(u.String())
 	if err != nil {
 		return nil, err
@@ -109,8 +116,8 @@ func (c Client) Get(id string) (*Paste, error) {
 	}
 
 	return &Paste{
-		raw: r.Body,
-		key: key,
+		raw:  r.Body,
+		ckey: ckey,
 	}, err
 }
 
@@ -165,7 +172,17 @@ func (c Client) Put(p Paste, r io.Reader, crypt bool) (string, error) {
 
 	form.Add("text", buf.String())
 
-	resp, err := c.hc.PostForm(c.Base.String()+"/api/create", form)
+	rurl, err := url.Parse(c.Base.String() + "/api/create")
+	if err != nil {
+		return "", errors.New("failed consutructing reqyest url" + err.Error())
+	}
+
+	if rurl.Query().Get("apikey") == "" && c.Key != "" {
+		vs := rurl.Query()
+		vs.Add("apikey", c.Key)
+		rurl.RawQuery = vs.Encode()
+	}
+	resp, err := c.hc.PostForm(rurl.String(), form)
 	if err != nil || resp.StatusCode != http.StatusOK {
 		return "", errors.New("failed to create paste, " + err.Error())
 	}
@@ -189,7 +206,7 @@ func NewClient() *Client {
 }
 
 func (p *Paste) Read(bs []byte) (int, error) {
-	if p.key != "" {
+	if p.ckey != "" {
 		if p.decrypted == nil {
 			//Don't currently support lzjs using a reader
 			buf := &bytes.Buffer{}
@@ -200,7 +217,7 @@ func (p *Paste) Read(bs []byte) (int, error) {
 			if err != nil {
 				return 0, err
 			}
-			lztext := decrypt(ciphertext, p.key)
+			lztext := decrypt(ciphertext, p.ckey)
 			plain, err := lzjs.DecompressFromBase64(string(lztext))
 			if err != nil {
 				return 0, err

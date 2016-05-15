@@ -17,7 +17,8 @@ import (
 )
 
 var (
-	urlStr = flag.String("url", "http://localhost:80", "Post contents of this file")
+	urlStr = flag.String("url", "", "Post contents of this file")
+	key    = flag.String("key", "", "API key, if needed")
 
 	author  = flag.String("author", "", "Author of the post")
 	title   = flag.String("title", "", "Title of the post")
@@ -31,12 +32,24 @@ func main() {
 	var err error
 	flag.Parse()
 
-	if *urlStr != "" {
-		gostikkit.DefaultClient.Base, err = url.Parse(*urlStr)
-		if err != nil {
-			fmt.Println("could not parse URL %v, %v", *urlStr, err.Error())
+	if *urlStr == "" {
+		*urlStr = os.Getenv("STIKKED_URL")
+		if *urlStr == "" {
+			fmt.Println("No base URL, set STIKKED_URL, or use the -url argument")
+			os.Exit(1)
 		}
 	}
+
+	gostikkit.DefaultClient.Base, err = url.Parse(*urlStr)
+	if err != nil {
+		fmt.Println("could not parse URL %v, %v", *urlStr, err.Error())
+		os.Exit(1)
+	}
+
+	if *key == "" {
+		*key = os.Getenv("STIKKED_KEY")
+	}
+	gostikkit.DefaultClient.Key = *key
 
 	if len(flag.Args()) == 0 || *file != "" {
 		var r = os.Stdin
