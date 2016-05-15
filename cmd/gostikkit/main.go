@@ -4,7 +4,6 @@ import (
 	"flag"
 	"fmt"
 	"io"
-	"log"
 	"net/url"
 	"os"
 	"os/user"
@@ -35,14 +34,14 @@ func main() {
 	if *urlStr == "" {
 		*urlStr = os.Getenv("STIKKED_URL")
 		if *urlStr == "" {
-			fmt.Println("No base URL, set STIKKED_URL, or use the -url argument")
+			fmt.Fprintln(os.Stderr, "No base URL, set STIKKED_URL, or use the -url argument")
 			os.Exit(1)
 		}
 	}
 
 	gostikkit.DefaultClient.Base, err = url.Parse(*urlStr)
 	if err != nil {
-		fmt.Println("could not parse URL %v, %v", *urlStr, err.Error())
+		fmt.Fprintf(os.Stderr, "could not parse URL %v, %v\n", *urlStr, err.Error())
 		os.Exit(1)
 	}
 
@@ -55,13 +54,13 @@ func main() {
 		var r = os.Stdin
 		var err error
 		if *urlStr == "" {
-			fmt.Printf("A url must be specific for pasting\n")
+			fmt.Fprintf(os.Stderr, "A url must be specific for pasting\n")
 			os.Exit(1)
 		}
 		if *file != "-" && *file != "" {
 			r, err = os.Open(*file)
 			if err != nil {
-				fmt.Printf("could not open %v, %v", *file, err.Error())
+				fmt.Fprintf(os.Stderr, "could not open %v, %v", *file, err.Error())
 				os.Exit(1)
 			}
 		}
@@ -105,7 +104,7 @@ func main() {
 			} else {
 				ms, err := strconv.Atoi(*expire)
 				if err != nil {
-					fmt.Printf("expiration must be a number of minute, \"never\", or \"burn\"")
+					fmt.Fprintf(os.Stderr, "expiration must be a number of minute, \"never\", or \"burn\"")
 					os.Exit(1)
 				}
 				p.Expire = time.Minute * time.Duration(ms)
@@ -114,7 +113,7 @@ func main() {
 
 		purl, err := gostikkit.Put(p, r, *encrypt)
 		if err != nil {
-			fmt.Printf(err.Error())
+			fmt.Fprintf(os.Stderr, err.Error())
 			os.Exit(1)
 		}
 		fmt.Println(purl)
@@ -124,12 +123,12 @@ func main() {
 	for _, a := range os.Args[1:] {
 		p, err := gostikkit.Get(a)
 		if err != nil {
-			log.Println(err)
+			fmt.Fprintf(os.Stderr, "%s\n", err)
 			continue
 		}
 		_, err = io.Copy(os.Stdout, p)
 		if err != nil {
-			log.Println(err)
+			fmt.Fprintf(os.Stderr, "%s\n", err)
 			continue
 		}
 	}

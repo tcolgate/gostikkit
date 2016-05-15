@@ -83,9 +83,8 @@ func stripSalt(ciphertext []byte) ([]byte, []byte) {
 	if bytes.Compare(opensslmagic, ciphertext[0:len(opensslmagic)]) == 0 {
 		return ciphertext[len(opensslmagic)+8 : len(ciphertext)],
 			ciphertext[len(opensslmagic) : len(opensslmagic)+8]
-	} else {
-		return ciphertext, nil
 	}
+	return ciphertext, nil
 }
 
 func encrypt(plaintext, password string) []byte {
