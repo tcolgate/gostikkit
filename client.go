@@ -33,29 +33,38 @@ import (
 )
 
 func init() {
-	DefaultClient.Base, _ = url.Parse("http://paste.scratchbook.ch")
 	DefaultClient.hc = http.DefaultClient
 }
 
 var rawCall = "/view/raw"
 
 type Client struct {
-	Base     *url.URL
-	Key      string
-	defaults Paste
-	hc       *http.Client
+	Base *url.URL
+	Paste
+
+	hc *http.Client
 }
 
+const (
+	ExpireNever        = time.Duration(-1)
+	ExpireAfterReading = time.Duration(-2)
+)
+
 type Paste struct {
-	title     *string
-	name      *string
-	private   *bool
-	lang      *string
-	expire    *time.Duration
-	replyTo   *string
+	Title   string
+	Author  string
+	Private bool
+	Lang    string
+	Expire  time.Duration
+	ReplyTo string
+
 	decrypted *bytes.Buffer
 	key       string
 	raw       io.ReadCloser
+}
+
+func (c Client) New() Paste {
+	return c.Paste
 }
 
 func Get(id string) (*Paste, error) {
@@ -112,28 +121,34 @@ func Put(p Paste, r io.Reader, encrypt bool) (string, error) {
 func (c Client) Put(p Paste, r io.Reader, crypt bool) (string, error) {
 	form := url.Values{}
 
-	if p.title != nil {
-		form.Add("title", *p.title)
+	if p.Title != "" {
+		form.Add("title", p.Title)
 	}
 
-	if p.name != nil {
-		form.Add("name", *p.name)
+	if p.Author != "" {
+		form.Add("name", p.Author)
 	}
 
-	if p.private != nil && *p.private {
+	if p.Private {
 		form.Add("private", "1")
 	}
 
-	if p.lang != nil {
-		form.Add("lang", *p.lang)
+	if p.Lang != "" {
+		form.Add("lang", p.Lang)
 	}
 
-	if p.replyTo != nil {
-		form.Add("reply", *p.replyTo)
+	if p.ReplyTo != "" {
+		form.Add("reply", p.ReplyTo)
 	}
 
-	if p.expire != nil && (*p.expire).String() != "" {
-		form.Add("expire", (*p.expire).String())
+	if p.Expire != time.Duration(0) {
+		if p.Expire == ExpireNever {
+			form.Add("expire", "0")
+		} else if p.Expire == ExpireAfterReading {
+			form.Add("expire", "burn")
+		} else {
+			form.Add("expire", fmt.Sprintf("%d", p.Expire/time.Minute))
+		}
 	}
 
 	buf := &bytes.Buffer{}
@@ -157,14 +172,13 @@ func (c Client) Put(p Paste, r io.Reader, crypt bool) (string, error) {
 
 	buf.Reset()
 	io.Copy(buf, resp.Body)
+	url := buf.String()
+	url = strings.Replace(url, "\n", "", -1)
 
 	if crypt {
-		url := buf.String()
-		url = fmt.Sprintf("%s#%s", strings.Replace(url, "\n", "", -1), key)
-		buf.Reset()
-		buf.Write([]byte(url))
+		url = fmt.Sprintf("%s#%s", url, key)
 	}
-	return buf.String(), nil
+	return url, nil
 }
 
 var DefaultClient = &Client{}
@@ -172,75 +186,6 @@ var DefaultClient = &Client{}
 func NewClient() *Client {
 	c := *DefaultClient
 	return &c
-}
-
-type option func(c *Client) option
-type pasteoption func(c *Paste) pasteoption
-
-func Option(opts ...option) (previous option) {
-	return DefaultClient.Option(opts...)
-}
-
-func (c *Client) Option(opts ...option) (previous option) {
-	for _, opt := range opts {
-		previous = opt(c)
-	}
-	return previous
-}
-
-func DefaultExpire(t time.Duration) option {
-	return func(c *Client) option {
-		previous := c.defaults.expire
-		c.defaults.expire = &t
-		return DefaultExpire(*previous)
-	}
-}
-
-func DefaultName(n string) option {
-	return func(c *Client) option {
-		previous := c.defaults.name
-		c.defaults.name = &n
-		return DefaultName(*previous)
-	}
-}
-
-func DefaultPrivate(p bool) option {
-	return func(c *Client) option {
-		previous := c.defaults.private
-		c.defaults.private = &p
-		return DefaultPrivate(*previous)
-	}
-}
-
-func (c *Paste) Option(opts ...pasteoption) (previous pasteoption) {
-	for _, opt := range opts {
-		previous = opt(c)
-	}
-	return previous
-}
-
-func Expire(t time.Duration) pasteoption {
-	return func(p *Paste) pasteoption {
-		previous := p.expire
-		p.expire = &t
-		return Expire(*previous)
-	}
-}
-
-func Name(n string) pasteoption {
-	return func(p *Paste) pasteoption {
-		previous := p.name
-		p.name = &n
-		return Name(*previous)
-	}
-}
-
-func Private(b bool) pasteoption {
-	return func(p *Paste) pasteoption {
-		previous := p.private
-		p.private = &b
-		return Private(*previous)
-	}
 }
 
 func (p *Paste) Read(bs []byte) (int, error) {
