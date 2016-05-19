@@ -182,9 +182,13 @@ func (c Client) Put(p Paste, r io.Reader, crypt bool) (string, error) {
 		vs.Add("apikey", c.Key)
 		rurl.RawQuery = vs.Encode()
 	}
+
 	resp, err := c.hc.PostForm(rurl.String(), form)
-	if err != nil || resp.StatusCode != http.StatusOK {
+	if err != nil {
 		return "", errors.New("failed to create paste, " + err.Error())
+	}
+	if resp.StatusCode != http.StatusOK {
+		return "", errors.New("failed to create paste, remote host returned " + http.StatusText(resp.StatusCode))
 	}
 
 	buf.Reset()
