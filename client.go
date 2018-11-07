@@ -33,7 +33,7 @@ import (
 )
 
 func init() {
-	DefaultClient.hc = http.DefaultClient
+	DefaultClient.HTTPClient = http.DefaultClient
 }
 
 var rawCall = "/view/raw"
@@ -44,7 +44,7 @@ type Client struct {
 
 	Paste //The default post to use
 
-	hc *http.Client
+	HTTPClient *http.Client
 }
 
 const (
@@ -107,7 +107,7 @@ func (c Client) Get(id string) (*Paste, error) {
 		vs.Add("apikey", c.Key)
 		u.RawQuery = vs.Encode()
 	}
-	r, err := c.hc.Get(u.String())
+	r, err := c.HTTPClient.Get(u.String())
 	if err != nil {
 		return nil, err
 	}
@@ -183,7 +183,7 @@ func (c Client) Put(p Paste, r io.Reader, crypt bool) (string, error) {
 		rurl.RawQuery = vs.Encode()
 	}
 
-	resp, err := c.hc.PostForm(rurl.String(), form)
+	resp, err := c.HTTPClient.PostForm(rurl.String(), form)
 	if err != nil {
 		return "", errors.New("failed to create paste, " + err.Error())
 	}
