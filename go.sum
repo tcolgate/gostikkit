@@ -1,4 +1,8 @@
 github.com/tcolgate/gostikkit/evpkdf v0.0.0-20181107100648-5e18a232dc98 h1:899wovrYYZdchg0xEKQWNN9K5SRhCcfOIQYQ3mNyKig=
 github.com/tcolgate/gostikkit/evpkdf v0.0.0-20181107100648-5e18a232dc98/go.mod h1:/EPzq64C4K0kI14aL7Ii1nOw+IpremLieTpJahXLZkU=
+github.com/tcolgate/gostikkit/evpkdf v0.0.0-20260215094027-c76004b19318 h1:6BHW+VVvTDxxIE8GNpzh1+U5Kc1IFhgY2CBk2FnZ8+w=
+github.com/tcolgate/gostikkit/evpkdf v0.0.0-20260215094027-c76004b19318/go.mod h1:Tp0HKQVXxGv/RL5Rd7EmsMFuCBStsDpUbAhvgrilOJc=
 github.com/tcolgate/gostikkit/lzjs v0.0.0-20181107100648-5e18a232dc98 h1:yPkD3DHLx3o7alJjcaseMuu9aFWJV0P4qSlbdmIjf/0=
 github.com/tcolgate/gostikkit/lzjs v0.0.0-20181107100648-5e18a232dc98/go.mod h1:1x9vXXh+zhz4/O371iLUUs5JygwLzKnTGftK6O7jgh0=
+github.com/tcolgate/gostikkit/lzjs v0.0.0-20260215094027-c76004b19318 h1:Bq9RZFsYAr9eW2X0YrG4lqHDTWvGA/rLqXvhMe5t7+o=
+github.com/tcolgate/gostikkit/lzjs v0.0.0-20260215094027-c76004b19318/go.mod h1:OjDsXcn+ictN4Yps0D3Pmf/Uga8ssqFsFArBrlsK5dA=
