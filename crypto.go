@@ -61,7 +61,7 @@ func pkcs7Unpad(data []byte, blocklen int) ([]byte, error) {
 	}
 	// check padding
 	pad := data[len(data)-padlen:]
-	for i := 0; i < padlen; i++ {
+	for i := range padlen {
 		if pad[i] != byte(padlen) {
 			return data, nil
 		}
@@ -175,7 +175,7 @@ func genChars(n int) []byte {
 	out := make([]byte, n)
 	rs := make([]byte, n)
 	rand.Read(rs)
-	for i := 0; i < n; i++ {
+	for i := range n {
 		out[i] = chars[uint(rs[i])%uint(len(chars))]
 	}
 	return out
