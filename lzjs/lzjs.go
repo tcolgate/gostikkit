@@ -63,7 +63,7 @@ func (data *lzData) writeBit(value uint16) {
 }
 
 func (data *lzData) writeBits(numBits int, value uint16) {
-	for i := 0; i < numBits; i++ {
+	for range numBits {
 		data.writeBit(value & 1)
 		value = value >> 1
 	}
@@ -213,7 +213,7 @@ func Decompress(compressed []uint16) (string, error) {
 		index:    1,
 	}
 
-	for i := 0; i < 3; i++ {
+	for i := range 3 {
 		dictionary = append(dictionary, []uint16{uint16(i)})
 	}
 
@@ -294,7 +294,7 @@ func CompressToBase64(in string) string {
 	comps := Compress(in)
 
 	bs := []byte{}
-	for i := 0; i < len(comps); i++ {
+	for i := range comps {
 		bs = append(bs, byte(comps[i]>>8))
 		bs = append(bs, byte(comps[i]&(uint16(255))))
 	}
